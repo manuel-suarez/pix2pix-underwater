@@ -310,6 +310,6 @@ def generate_images(model, x_input, y_input, fname):
     plt.savefig(fname)
 
 for x_input, y_input in train_xy.take(1):
-    generate_images(generator, x_input, y_input)
-    print(x_input.shape, y_input.shape, 'testimagegeneration.png')
+    generate_images(generator, x_input, y_input, 'testimagegeneration.png')
+    print(x_input.shape, y_input.shape)
     break
