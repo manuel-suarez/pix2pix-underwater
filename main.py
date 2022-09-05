@@ -97,3 +97,25 @@ for i in range(rows * cols):
 print(x_imgs[0].shape, x_imgs[0].shape)  # a modo de comprobacion
 
 display_images('testfigure1.png', x_imgs, y_imgs, rows=rows, cols=cols)
+
+# Datasets configuration
+idx = int(BUFFER_SIZE*.8)
+
+train_x = tf.data.Dataset.list_files(xfiles[:idx], shuffle=False)
+train_y = tf.data.Dataset.list_files(yfiles[:idx], shuffle=False)
+train_xy = tf.data.Dataset.zip((train_x, train_y))
+train_xy = train_xy.shuffle(buffer_size=idx, reshuffle_each_iteration=True)
+train_xy = train_xy.map(load_images, num_parallel_calls=tf.data.AUTOTUNE)
+train_xy = train_xy.batch(BATCH_SIZE)
+
+test_x = tf.data.Dataset.list_files(xfiles[idx:], shuffle=False)
+test_y = tf.data.Dataset.list_files(yfiles[idx:], shuffle=False)
+test_xy = tf.data.Dataset.zip((test_x, test_y))
+test_xy = test_xy.map(load_images, num_parallel_calls=tf.data.AUTOTUNE)
+test_xy = test_xy.batch(BATCH_SIZE)
+
+rows=2
+cols=2
+for x,y in train_xy.take(1):
+    display_images('testingdataset.png', x, y, rows=rows, cols=cols)
+    break
