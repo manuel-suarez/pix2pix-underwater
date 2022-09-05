@@ -313,3 +313,74 @@ for x_input, y_input in train_xy.take(1):
     generate_images(generator, x_input, y_input, 'testimagegeneration.png')
     print(x_input.shape, y_input.shape)
     break
+
+# Logging configuration
+log_dir="logs/"
+
+summary_writer = tf.summary.create_file_writer(
+  log_dir + "fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+
+# Train step
+@tf.function
+def train_step(input_image, target, step):
+    '''
+    Cálculos realizados durante un paso del entrenamiento
+
+    Dadas los pares x,y (suavizada, real):
+    - Genera datos sintéticos x' con Unet
+    - Evalua el discriminador para los pares suavizado-(x,y) y texturizado-(x',y)
+    - Evalua los costos del generador y del discriminador
+    - Calcula los gradiente
+    - Realiza los pasos de optimización
+    - Reporta loss y métricas
+    '''
+
+    with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+        gen_output = generator(input_image, training=True)
+
+        disc_real_output = discriminator([input_image, target], training=True)
+        disc_generated_output = discriminator([input_image, gen_output], training=True)
+
+        gen_total_loss, gen_gan_loss, gen_l1_loss = generator_loss(disc_generated_output, gen_output, target)
+        disc_loss = discriminator_loss(disc_real_output, disc_generated_output)
+
+    generator_gradients = gen_tape.gradient(gen_total_loss, generator.trainable_variables)
+    discriminator_gradients = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
+
+    generator_optimizer.apply_gradients(zip(generator_gradients, generator.trainable_variables))
+    discriminator_optimizer.apply_gradients(zip(discriminator_gradients, discriminator.trainable_variables))
+
+    with summary_writer.as_default():
+        ss = step // 1000
+        tf.summary.scalar('gen_total_loss', gen_total_loss, step=ss)
+        tf.summary.scalar('gen_gan_loss', gen_gan_loss, step=ss)
+        tf.summary.scalar('gen_l1_loss', gen_l1_loss, step=ss)
+        tf.summary.scalar('disc_loss', disc_loss, step=ss)
+
+# Training
+def fit(train_xy, test_xy, steps):
+    # toma un lote, batch de pares (x,y)
+    x, y = next(iter(test_xy.take(1)))
+    start = time.time()
+
+    for step, (x, y) in train_xy.repeat().take(steps).enumerate():
+
+        # muestra avance en la texturización
+        if (step) % 1000 == 0:
+            if step != 0:
+                print(f'Time taken for 1000 steps: {time.time() - start:.2f} sec\n')
+
+            start = time.time()
+            generate_images(generator, x, y, f"trainingimagegeneration{step}.png")
+            print(f"Step: {step // 1000}k")
+
+        # paso de entrenamiento
+        train_step(x, y, step)
+        if (step + 1) % 10 == 0: print('.', end='', flush=True)
+
+        # Checkpoint every 5k steps
+        if (step + 1) % 5000 == 0:
+            checkpoint.save(file_prefix=checkpoint_prefix)
+
+# Test training
+fit(train_xy, test_xy, steps=5000)
