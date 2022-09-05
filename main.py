@@ -382,5 +382,5 @@ def fit(train_xy, test_xy, steps):
         if (step + 1) % 5000 == 0:
             checkpoint.save(file_prefix=checkpoint_prefix)
 
-# Test training
-fit(train_xy, test_xy, steps=5000)
+# Full training
+fit(train_xy, test_xy, steps=80000)
